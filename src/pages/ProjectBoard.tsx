@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, GripVertical, Calendar, Trash2, Edit2, MoreVertical } from "lucide-react";
+import { ArrowLeft, Plus, GripVertical, Calendar, Trash2, Edit2, MoreVertical, Play, CheckCircle } from "lucide-react";
 import { SubTaskList } from "@/components/SubTaskList";
 import {
   Dialog,
@@ -315,6 +315,33 @@ const ProjectBoard = () => {
                                     Edit Task
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
+                                  {task.status === "todo" && (
+                                    <DropdownMenuItem 
+                                      onClick={() => updateTask(task.id, { status: "progress" })}
+                                      className="cursor-pointer"
+                                    >
+                                      <Play className="w-4 h-4 mr-2" />
+                                      Start Task
+                                    </DropdownMenuItem>
+                                  )}
+                                  {task.status === "progress" && (
+                                    <DropdownMenuItem 
+                                      onClick={() => updateTask(task.id, { status: "review" })}
+                                      className="cursor-pointer"
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-2" />
+                                      Send to Review
+                                    </DropdownMenuItem>
+                                  )}
+                                  {task.status === "review" && (
+                                    <DropdownMenuItem 
+                                      onClick={() => updateTask(task.id, { status: "done" })}
+                                      className="cursor-pointer"
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-2" />
+                                      Mark as Done
+                                    </DropdownMenuItem>
+                                  )}
                                   {columns.filter(c => c.id !== task.status).map(col => (
                                     <DropdownMenuItem 
                                       key={col.id}
@@ -357,19 +384,50 @@ const ProjectBoard = () => {
                                 {task.assignee}
                               </div>
                             </div>
+
+                            {/* Quick Action Buttons */}
+                            <div className="flex gap-2 mt-4 pt-4 border-t border-border/30">
+                              {task.status === "todo" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="flex-1 bg-secondary/10 hover:bg-secondary/20 text-secondary hover:text-secondary"
+                                  onClick={() => updateTask(task.id, { status: "progress" })}
+                                >
+                                  <Play className="w-4 h-4 mr-2" />
+                                  Start Task
+                                </Button>
+                              )}
+                              {task.status === "progress" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary hover:text-primary"
+                                  onClick={() => updateTask(task.id, { status: "review" })}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Send to Review
+                                </Button>
+                              )}
+                              {task.status === "review" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 hover:text-green-600"
+                                  onClick={() => updateTask(task.id, { status: "done" })}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Done
+                                </Button>
+                              )}
+                            </div>
                             
-                            {/* SubTasks - Compact Preview */}
+                            {/* SubTasks Count - Compact Display Only */}
                             {task.subTasks && task.subTasks.length > 0 && (
-                              <div className="mb-4 p-3 bg-muted/30 rounded-lg border border-primary/10 group-hover:border-primary/30 transition-all">
-                                <p className="text-xs font-medium text-muted-foreground mb-2.5">
-                                  ✓ {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length} subtasks
-                                </p>
-                                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500 rounded-full"
-                                    style={{ width: `${(task.subTasks.filter(st => st.completed).length / task.subTasks.length) * 100}%` }}
-                                  />
-                                </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors">
+                                <span className="font-medium">
+                                  {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length} subtasks
+                                </span>
                               </div>
                             )}
                             

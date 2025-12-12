@@ -290,8 +290,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
-    // تحديث الواجهة
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    // تحديث الواجهة - الحفاظ على subTasks
+    setTasks(prev => prev.map(t => {
+      if (t.id === id) {
+        return {
+          ...t,
+          ...updates,
+          subTasks: t.subTasks || [] // الحفاظ على المهام الفرعية
+        };
+      }
+      return t;
+    }));
 
     // تحديث قاعدة البيانات
     const dbUpdates: any = {};
@@ -361,7 +370,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateSubTask = async (subTaskId: string, updates: Partial<SubTask>) => {
+    // تحديث قائمة المهام الفرعية
     setSubTasks(prev => prev.map(st => st.id === subTaskId ? { ...st, ...updates } : st));
+    
+    // تحديث المهام الرئيسية بالمهام الفرعية المحدثة
+    setTasks(prev => prev.map(task => ({
+      ...task,
+      subTasks: task.subTasks?.map(st => 
+        st.id === subTaskId ? { ...st, ...updates } : st
+      ) || []
+    })));
     
     await supabase.from('sub_tasks').update({
       completed: updates.completed,

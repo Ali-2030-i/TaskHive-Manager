@@ -1,5 +1,13 @@
 import { Layers, Zap, Users, Shield, BarChart3, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  StaggerItem,
+  HoverScale,
+  Pulse,
+} from "@/components/MotionComponents";
 
 const features = [
   {
@@ -57,42 +65,70 @@ export function Features() {
     <section id="features" className="py-24 relative">
       <div className="container mx-auto px-6">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-            Everything you need to{" "}
-            <span className="gradient-text-amber">succeed</span>
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            Powerful features designed to help your team work smarter, not
-            harder.
-          </p>
-        </div>
+        <ScrollReveal delay={0.1}>
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <motion.h2
+              className="font-display text-4xl md:text-5xl font-bold mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              Everything you need to{" "}
+              <span className="gradient-text-amber">succeed</span>
+            </motion.h2>
+            <motion.p
+              className="text-lg text-muted-foreground"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              viewport={{ once: true }}
+            >
+              Powerful features designed to help your team work smarter, not
+              harder.
+            </motion.p>
+          </div>
+        </ScrollReveal>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div
-              key={feature.title}
-              className="glass-card p-6 group hover:border-primary/30 transition-all duration-300 hover:-translate-y-1"
-              style={{
-                animationDelay: `${index * 0.1}s`,
-              }}
-            >
-              <div
-                className={cn(
-                  "w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110",
-                  feature.bgColor
-                )}
-              >
-                <feature.icon className={cn("w-6 h-6", feature.color)} />
-              </div>
-              <h3 className="font-display text-xl font-semibold mb-2 text-foreground">
-                {feature.title}
-              </h3>
-              <p className="text-muted-foreground">{feature.description}</p>
-            </div>
-          ))}
-        </div>
+        <StaggerContainer staggerDelay={0.1} delay={0.3}>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature) => (
+              <StaggerItem key={feature.title}>
+                <HoverScale scale={1.05}>
+                  <motion.div
+                    className="glass-card p-6 group hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden"
+                    whileHover={{ borderColor: "rgba(var(--primary), 0.3)" }}
+                  >
+                    {/* Background glow */}
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      initial={{ x: "-100%" }}
+                      whileHover={{ x: "100%" }}
+                      transition={{ duration: 0.5 }}
+                    />
+
+                    <div className="relative">
+                      <motion.div
+                        className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform",
+                          feature.bgColor
+                        )}
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                      >
+                        <feature.icon className={cn("w-6 h-6", feature.color)} />
+                      </motion.div>
+                      <h3 className="font-display text-xl font-semibold mb-2 text-foreground">
+                        {feature.title}
+                      </h3>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </div>
+                  </motion.div>
+                </HoverScale>
+              </StaggerItem>
+            ))}
+          </div>
+        </StaggerContainer>
       </div>
     </section>
   );

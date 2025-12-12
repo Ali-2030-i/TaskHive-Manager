@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreVertical, CheckCircle2, Trash2, Edit2, Archive, RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useData, Project } from "@/contexts/DataContext";
+import {
+  FadeIn,
+  StaggerContainer,
+  StaggerItem,
+  HoverScale,
+} from "@/components/MotionComponents";
 
 const colorOptions = [
   { name: "Amber", class: "bg-primary" },
@@ -103,83 +110,87 @@ const Projects = () => {
       <div className="pt-28 pb-16 min-h-screen bg-gradient-to-br from-background via-background to-secondary/5">
         <div className="container mx-auto px-6">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12 gap-4">
-            <div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Projects
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Manage and organize all your team projects
-              </p>
-            </div>
-            
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button variant="hero" className="gap-2 group">
-                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                  Create Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-card border-border">
-                <DialogHeader>
-                  <DialogTitle className="font-display text-xl">
-                    Create New Project
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">
-                      Project Name
-                    </label>
-                    <Input
-                      placeholder="Enter project name..."
-                      value={newProject.name}
-                      onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                      className="bg-muted border-border focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">
-                      Description
-                    </label>
-                    <Textarea
-                      placeholder="Enter project description..."
-                      value={newProject.description}
-                      onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                      className="bg-muted border-border resize-none focus:border-primary"
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">
-                      Color Tag
-                    </label>
-                    <div className="flex gap-3">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color.name}
-                          onClick={() => setNewProject({ ...newProject, color: color.class })}
-                          className={cn(
-                            "w-8 h-8 rounded-full transition-all duration-300 hover:scale-125",
-                            color.class,
-                            newProject.color === color.class && "ring-2 ring-foreground ring-offset-2 ring-offset-card scale-110"
-                          )}
-                          title={color.name}
-                        />
-                      ))}
+          <FadeIn direction="down" duration={0.6}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12 gap-4">
+              <div>
+                <h1 className="font-display text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Projects
+                </h1>
+                <p className="text-muted-foreground text-lg">
+                  Manage and organize all your team projects
+                </p>
+              </div>
+              
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <HoverScale scale={1.08}>
+                    <Button variant="hero" className="gap-2 group">
+                      <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                      Create Project
+                    </Button>
+                  </HoverScale>
+                </DialogTrigger>
+                <DialogContent className="bg-card border-border">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl">
+                      Create New Project
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Project Name
+                      </label>
+                      <Input
+                        placeholder="Enter project name..."
+                        value={newProject.name}
+                        onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                        className="bg-muted border-border focus:border-primary"
+                      />
                     </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Description
+                      </label>
+                      <Textarea
+                        placeholder="Enter project description..."
+                        value={newProject.description}
+                        onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                        className="bg-muted border-border resize-none focus:border-primary"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Color Tag
+                      </label>
+                      <div className="flex gap-3">
+                        {colorOptions.map((color) => (
+                          <button
+                            key={color.name}
+                            onClick={() => setNewProject({ ...newProject, color: color.class })}
+                            className={cn(
+                              "w-8 h-8 rounded-full transition-all duration-300 hover:scale-125",
+                              color.class,
+                              newProject.color === color.class && "ring-2 ring-foreground ring-offset-2 ring-offset-card scale-110"
+                            )}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <Button 
+                      variant="hero" 
+                      className="w-full"
+                      onClick={handleCreateProject}
+                    >
+                      Create Project
+                    </Button>
                   </div>
-                  <Button 
-                    variant="hero" 
-                    className="w-full"
-                    onClick={handleCreateProject}
-                  >
-                    Create Project
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </FadeIn>
 
           {/* Projects Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -196,18 +207,21 @@ const Projects = () => {
                 </Dialog>
               </div>
             ) : (
-              projects.map((project, index) => {
-                const stats = getProjectStats(project.id);
-              return (
-                <div
-                  key={project.id}
-                  className={cn(
-                    "group relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-background/40 to-background/20 p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/50",
-                    project.status === "completed" && "opacity-70",
-                    project.status === "archived" && "opacity-50"
-                  )}
-                  style={{ animation: `slideUp 0.6s ease-out ${index * 0.1}s both` }}
-                >
+              <StaggerContainer staggerDelay={0.08} delay={0.2}>
+                <div className="grid grid-cols-1 gap-8">
+                  {projects.map((project) => {
+                    const stats = getProjectStats(project.id);
+                    return (
+                      <StaggerItem key={project.id}>
+                        <HoverScale scale={1.05}>
+                          <motion.div
+                            className={cn(
+                              "group relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-background/40 to-background/20 p-10 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary/50 flex flex-col min-h-full",
+                              project.status === "completed" && "opacity-70",
+                              project.status === "archived" && "opacity-50"
+                            )}
+                            whileHover={{ y: -8 }}
+                          >
                   {/* Background Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="relative">
@@ -224,15 +238,21 @@ const Projects = () => {
 
                     {/* Header */}
                     <div className="flex items-start justify-between mb-4">
-                      <div className={cn("w-4 h-4 rounded-full group-hover:scale-150 transition-transform duration-300", project.color)} />
+                      <motion.div
+                        className={cn("w-4 h-4 rounded-full", project.color)}
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button 
+                          <motion.button
                             className="p-1.5 rounded-lg hover:bg-muted transition-all opacity-0 group-hover:opacity-100 duration-300"
                             onClick={(e) => e.preventDefault()}
+                            whileHover={{ scale: 1.1, rotate: 90 }}
+                            transition={{ type: "spring", stiffness: 300 }}
                           >
                             <MoreVertical className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                          </button>
+                          </motion.button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-card border-border">
                           <DropdownMenuItem onClick={() => openEditDialog(project)} className="cursor-pointer">
@@ -277,61 +297,81 @@ const Projects = () => {
 
                     {/* Content - Clickable Link */}
                     <Link to={`/project/${project.id}`} className="block">
-                      <h3 className="font-display text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors duration-200">
+                      <h3 className="font-display text-2xl font-bold text-foreground mb-3 group-hover:text-primary transition-colors duration-200">
                         {project.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 group-hover:text-foreground/60 transition-colors">
+                      <p className="text-base text-muted-foreground mb-6 line-clamp-3 group-hover:text-foreground/60 transition-colors">
                         {project.description || "No description"}
                       </p>
                     </Link>
 
                     {/* Stats Bar */}
-                    <div className="mb-4 p-3 bg-muted/30 rounded-lg border border-primary/10 group-hover:border-primary/30 transition-all">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-foreground">
+                    <motion.div
+                      className="mb-6 p-4 bg-muted/30 rounded-lg border border-primary/10 group-hover:border-primary/30 transition-all"
+                      whileHover={{ borderColor: "rgba(var(--primary), 0.3)" }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-foreground">
                           Progress
                         </span>
-                        <span className="text-xs font-bold text-primary">
+                        <motion.span
+                          className="text-sm font-bold text-primary"
+                          animate={{ opacity: [1, 0.7, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
                           {stats.completed}/{stats.total}
-                        </span>
+                        </motion.span>
                       </div>
-                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
-                          style={{ width: `${stats.total === 0 ? 0 : (stats.completed / stats.total) * 100}%` }}
+                      <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-primary to-secondary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${stats.total === 0 ? 0 : (stats.completed / stats.total) * 100}%` }}
+                          transition={{ duration: 0.8, delay: 0.2 }}
                         />
                       </div>
-                    </div>
+                    </motion.div>
 
                     {/* Team Members */}
-                    <div className="flex items-center justify-between pt-3 border-t border-border/30">
-                      <div className="flex -space-x-2">
+                    <motion.div
+                      className="flex items-center justify-between pt-4 border-t border-border/30 mt-auto"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <div className="flex -space-x-3">
                         {project.members.slice(0, 3).map((member, i) => (
-                          <div
+                          <motion.div
                             key={i}
-                            className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/50 to-secondary/50 flex items-center justify-center text-xs font-bold text-primary-foreground border border-background"
+                            className="w-11 h-11 rounded-full bg-gradient-to-br from-primary/50 to-secondary/50 flex items-center justify-center text-base font-bold text-primary-foreground border-2 border-background cursor-pointer"
                             title={member}
+                            whileHover={{ scale: 1.2, zIndex: 10 }}
+                            transition={{ type: "spring", stiffness: 300 }}
                           >
                             {member}
-                          </div>
+                          </motion.div>
                         ))}
                         {project.members.length > 3 && (
-                          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground border border-background">
+                          <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center text-base font-bold text-muted-foreground border-2 border-background">
                             +{project.members.length - 3}
                           </div>
                         )}
                       </div>
                       <Link 
                         to={`/project/${project.id}`}
-                        className="text-xs font-medium text-primary hover:text-primary/80 transition-colors group-hover:underline"
+                        className="text-base font-medium text-primary hover:text-primary/80 transition-colors group-hover:underline"
                       >
                         View Board →
                       </Link>
-                    </div>
+                    </motion.div>
                   </div>
+                </motion.div>
+                        </HoverScale>
+                      </StaggerItem>
+                    );
+                  })}
                 </div>
-              );
-            })
+              </StaggerContainer>
             )}
           </div>
         </div>
