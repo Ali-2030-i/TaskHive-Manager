@@ -210,10 +210,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // --- 3. Projects Actions ---
   const addProject = async (projectData: Omit<Project, "id">) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.from('projects').insert([{
         name: projectData.name,
         description: projectData.description,
-        // user_id: ممكن نضيفه هنا لو معانا اليوزر
+        user_id: user?.id
       }]).select().single();
 
       if (error) throw error;
@@ -263,13 +264,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // --- 4. Tasks Actions ---
   const addTask = async (taskData: Omit<Task, "id">) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.from('tasks').insert([{
         title: taskData.title,
         description: taskData.description,
         status: taskData.status,
         priority: taskData.priority,
         due_date: taskData.dueDate,      // Mapping
-        project_id: taskData.projectId   // Mapping
+        project_id: taskData.projectId,  // Mapping
+        user_id: user?.id
       }]).select().single();
 
       if (error) throw error;
