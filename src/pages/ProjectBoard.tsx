@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, GripVertical, Calendar, Trash2, Edit2, MoreVertical } from "lucide-react";
+import { SubTaskList } from "@/components/SubTaskList";
 import {
   Dialog,
   DialogContent,
@@ -262,96 +263,122 @@ const ProjectBoard = () => {
             {columns.map((column) => (
               <div
                 key={column.id}
-                className="glass-card p-4"
+                className="flex flex-col bg-gradient-to-b from-background/40 to-background/20 border border-border/40 rounded-xl p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-lg group/column"
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(column.id as Task["status"])}
               >
                 {/* Column Header */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className={cn("w-3 h-3 rounded-full", column.color)} />
-                  <h3 className="font-display font-semibold text-foreground">
+                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border/30 group-hover/column:border-primary/20 transition-all">
+                  <div className={cn("w-3 h-3 rounded-full group-hover/column:scale-125 transition-transform duration-200", column.color)} />
+                  <h3 className="font-display font-bold text-foreground group-hover/column:text-primary transition-colors duration-200">
                     {column.title}
                   </h3>
-                  <span className="ml-auto text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  <span className="ml-auto text-sm font-semibold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full group-hover/column:bg-primary/20 group-hover/column:text-primary transition-all duration-200">
                     {getTasksByStatus(column.id as Task["status"]).length}
                   </span>
                 </div>
 
                 {/* Tasks */}
-                <div className="space-y-3">
-                  {getTasksByStatus(column.id as Task["status"]).map((task) => (
-                    <div
-                      key={task.id}
-                      draggable
-                      onDragStart={() => handleDragStart(task)}
-                      className={cn(
-                        "kanban-card group",
-                        draggedTask?.id === task.id && "opacity-50"
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 shrink-0 cursor-grab" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-medium text-foreground text-sm mb-1">
-                              {task.title}
-                            </h4>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  <MoreVertical className="w-3 h-3 text-muted-foreground" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-card border-border">
-                                <DropdownMenuItem onClick={() => openEditDialog(task)}>
-                                  <Edit2 className="w-4 h-4 mr-2" />
-                                  Edit Task
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {columns.filter(c => c.id !== task.status).map(col => (
-                                  <DropdownMenuItem 
-                                    key={col.id}
-                                    onClick={() => updateTask(task.id, { status: col.id as Task["status"] })}
-                                  >
-                                    <div className={cn("w-3 h-3 rounded-full mr-2", col.color)} />
-                                    Move to {col.title}
+                <div className="space-y-4 min-h-[500px]">
+                  {getTasksByStatus(column.id as Task["status"]).length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-sm text-muted-foreground">No tasks yet</p>
+                    </div>
+                  ) : (
+                    getTasksByStatus(column.id as Task["status"]).map((task) => (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={() => handleDragStart(task)}
+                        className={cn(
+                          "group bg-card border border-border/40 rounded-xl p-5 cursor-move transition-all duration-300 hover:shadow-lg hover:border-primary/50 hover:bg-card/80",
+                          draggedTask?.id === task.id && "opacity-50 scale-95",
+                          "transform hover:scale-102 hover:-translate-y-1"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <GripVertical className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 shrink-0 cursor-grab active:cursor-grabbing" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <h4 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors duration-200 line-clamp-2">
+                                {task.title}
+                              </h4>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="p-1.5 rounded-md hover:bg-muted opacity-0 group-hover:opacity-100 transition-all shrink-0 hover:text-primary">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-card border-border">
+                                  <DropdownMenuItem onClick={() => openEditDialog(task)} className="cursor-pointer">
+                                    <Edit2 className="w-4 h-4 mr-2" />
+                                    Edit Task
                                   </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => setDeleteTaskId(task.id)}
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete Task
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                            {task.description}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className={cn(
-                              "text-xs px-2 py-0.5 rounded capitalize",
-                              priorityColors[task.priority]
-                            )}>
-                              {task.priority}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  <DropdownMenuSeparator />
+                                  {columns.filter(c => c.id !== task.status).map(col => (
+                                    <DropdownMenuItem 
+                                      key={col.id}
+                                      onClick={() => updateTask(task.id, { status: col.id as Task["status"] })}
+                                      className="cursor-pointer"
+                                    >
+                                      <div className={cn("w-3 h-3 rounded-full mr-2", col.color)} />
+                                      Move to {col.title}
+                                    </DropdownMenuItem>
+                                  ))}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    className="text-destructive focus:text-destructive cursor-pointer"
+                                    onClick={() => setDeleteTaskId(task.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Task
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            {task.description && (
+                              <p className="text-sm text-muted-foreground mb-3 line-clamp-2 group-hover:text-foreground/60 transition-colors">
+                                {task.description}
+                              </p>
+                            )}
+                            <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+                              <span className={cn(
+                                "text-xs px-3 py-1.5 rounded-full font-medium capitalize transition-all duration-200",
+                                priorityColors[task.priority],
+                                "group-hover:scale-110"
+                              )}>
+                                {task.priority}
+                              </span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors">
+                                <Calendar className="w-4 h-4" />
+                                <span className="font-medium">{new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                               </div>
-                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/50 to-secondary/50 flex items-center justify-center text-xs font-bold text-primary-foreground hover:scale-110 transition-transform duration-200">
                                 {task.assignee}
                               </div>
                             </div>
+                            
+                            {/* SubTasks - Compact Preview */}
+                            {task.subTasks && task.subTasks.length > 0 && (
+                              <div className="mb-4 p-3 bg-muted/30 rounded-lg border border-primary/10 group-hover:border-primary/30 transition-all">
+                                <p className="text-xs font-medium text-muted-foreground mb-2.5">
+                                  ✓ {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length} subtasks
+                                </p>
+                                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500 rounded-full"
+                                    style={{ width: `${(task.subTasks.filter(st => st.completed).length / task.subTasks.length) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
+                            <SubTaskList taskId={task.id} subTasks={tasks.find(t => t.id === task.id)?.subTasks || []} />
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             ))}

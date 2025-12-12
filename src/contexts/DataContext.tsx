@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from "../lib/supabase"; // تأكد إن المسار ده صح
 
 // --- Interfaces ---
+export interface SubTask {
+  id: string;
+  taskId: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -11,6 +19,7 @@ export interface Task {
   priority: "low" | "medium" | "high";
   assignee: string;
   dueDate: string;
+  subTasks?: SubTask[];
 }
 
 export interface Project {
@@ -51,6 +60,11 @@ interface DataContextType {
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   
+  // SubTasks
+  addSubTask: (taskId: string, title: string) => void;
+  updateSubTask: (subTaskId: string, updates: Partial<SubTask>) => void;
+  deleteSubTask: (subTaskId: string) => void;
+  
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => void;
   
@@ -78,6 +92,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [subTasks, setSubTasks] = useState<SubTask[]>([]);
 
   // بروفايل مبدئي مؤقتاً
   const [profile, setProfile] = useState<UserProfile>({
@@ -127,9 +142,30 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           priority: t.priority || 'medium',
           dueDate: t.due_date, // لاحظ التحويل هنا: due_date -> dueDate
           projectId: t.project_id, // لاحظ التحويل هنا: project_id -> projectId
-          assignee: 'AZ' // مؤقتاً
+          assignee: 'AZ', // مؤقتاً
+          subTasks: []
         }));
         setTasks(formattedTasks);
+      }
+
+      // 2.5 Get SubTasks
+      const { data: subTaskData } = await supabase.from('sub_tasks').select('*');
+      if (subTaskData) {
+        const formattedSubTasks: SubTask[] = subTaskData.map(st => ({
+          id: st.id,
+          taskId: st.task_id,
+          title: st.title,
+          completed: st.completed || false,
+          createdAt: st.created_at
+        }));
+        setSubTasks(formattedSubTasks);
+        
+        // Associate subtasks with tasks
+        const updatedTasks = formattedTasks.map(task => ({
+          ...task,
+          subTasks: formattedSubTasks.filter(st => st.taskId === task.id)
+        }));
+        setTasks(updatedTasks);
       }
 
       // 3. Get Activities
@@ -283,9 +319,71 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const project = projects.find(p => p.id === task?.projectId);
     
     setTasks(prev => prev.filter(t => t.id !== id));
+    setSubTasks(prev => prev.filter(st => st.taskId !== id));
     await supabase.from('tasks').delete().eq('id', id);
     
     addActivity("Deleted task", project?.name || "Unknown");
+  };
+
+  // --- 5. SubTasks Actions ---
+  const addSubTask = async (taskId: string, title: string) => {
+    try {
+      const { data, error } = await supabase.from('sub_tasks').insert([{
+        task_id: taskId,
+        title: title,
+        completed: false,
+      }]).select().single();
+
+      if (error) throw error;
+
+      if (data) {
+        const newSubTask: SubTask = {
+          id: data.id,
+          taskId: data.task_id,
+          title: data.title,
+          completed: data.completed,
+          createdAt: data.created_at,
+        };
+        
+        // تحديث الـ subTasks state
+        setSubTasks(prev => [...prev, newSubTask]);
+        
+        // تحديث الـ tasks state بإضافة الـ subtask
+        setTasks(prev => prev.map(task => 
+          task.id === taskId 
+            ? { ...task, subTasks: [...(task.subTasks || []), newSubTask] }
+            : task
+        ));
+      }
+    } catch (error) {
+      console.error("Error adding sub task:", error);
+    }
+  };
+
+  const updateSubTask = async (subTaskId: string, updates: Partial<SubTask>) => {
+    setSubTasks(prev => prev.map(st => st.id === subTaskId ? { ...st, ...updates } : st));
+    
+    await supabase.from('sub_tasks').update({
+      completed: updates.completed,
+      title: updates.title,
+    }).eq('id', subTaskId);
+
+    // Check if all subtasks of a task are completed
+    const subTask = subTasks.find(st => st.id === subTaskId);
+    if (subTask && updates.completed) {
+      const taskSubTasks = subTasks.filter(st => st.taskId === subTask.taskId);
+      const allCompleted = taskSubTasks.every(st => st.id === subTaskId ? updates.completed : st.completed);
+      if (allCompleted) {
+        const task = tasks.find(t => t.id === subTask.taskId);
+        const project = projects.find(p => p.id === task?.projectId);
+        addActivity("Completed all subtasks", project?.name || "Unknown");
+      }
+    }
+  };
+
+  const deleteSubTask = async (subTaskId: string) => {
+    setSubTasks(prev => prev.filter(st => st.id !== subTaskId));
+    await supabase.from('sub_tasks').delete().eq('id', subTaskId);
   };
 
   const updateProfile = (updates: Partial<UserProfile>) => {
@@ -314,6 +412,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addTask,
       updateTask,
       deleteTask,
+      addSubTask,
+      updateSubTask,
+      deleteSubTask,
       profile,
       updateProfile,
       activities,
