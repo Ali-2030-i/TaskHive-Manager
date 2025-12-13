@@ -13,10 +13,26 @@ create table public.user_profiles (
   email text,
   full_name text,
   avatar_url text,
-  role text default 'Member',          -- جديد: المسمى الوظيفي
-  focus_hours int default 0,           -- جديد: عدد ساعات التركيز
-  avatar_initials text,                -- جديد: الحروف الأولى للصورة
-  avatar_color text default 'bg-blue-500', -- جديد: لون الخلفية
+  role text default 'Member',
+  focus_hours int default 0,
+  avatar_initials text,
+  avatar_color text default 'bg-blue-500',
+  
+  -- معلومات شخصية جديدة 📝
+  phone text,
+  bio text,
+  timezone text default 'UTC',
+  status text default 'offline', -- online, offline, away
+  
+  -- التفضيلات 🎨
+  theme_preference text default 'system', -- light, dark, system
+  language_preference text default 'ar', -- ar, en
+  notification_email boolean default true,
+  notification_push boolean default true,
+  notification_on_comment boolean default true,
+  notification_on_task_complete boolean default true,
+  
+  updated_at timestamp with time zone default now(),
   created_at timestamp with time zone default now()
 );
 
@@ -62,7 +78,7 @@ create table public.activities (
   user_id uuid references auth.users not null
 );
 
--- 7. تفعيل الأمان (RLS Enablement) 🛡️
+-- 9. تفعيل الأمان (RLS Enablement) 🛡️
 alter table public.user_profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
@@ -73,21 +89,33 @@ alter table public.activities enable row level security;
 -- (كل مستخدم يشوف ويعدل حاجته هو بس)
 
 -- سياسات البروفايل
-create policy "Users can view own profile" on public.user_profiles for select using (auth.uid() = id);
-create policy "Users can update own profile" on public.user_profiles for update using (auth.uid() = id);
-create policy "Users can insert own profile" on public.user_profiles for insert with check (auth.uid() = id);
+-- السماح للنظام بإنشاء البروفايل تلقائياً عند التسجيل
+create policy "System can create profiles" on public.user_profiles 
+  for insert with check (true);
+
+-- السماح للمستخدم برؤية بروفايله الخاص
+create policy "Users can view own profile" on public.user_profiles 
+  for select using (auth.uid() = id);
+
+-- السماح للمستخدم بتحديث بروفايله الخاص
+create policy "Users can update own profile" on public.user_profiles 
+  for update using (auth.uid() = id);
 
 -- سياسات المشاريع
-create policy "Users can CRUD own projects" on public.projects for all using (auth.uid() = user_id);
+create policy "Users can CRUD own projects" on public.projects 
+  for all using (auth.uid() = user_id);
 
 -- سياسات التاسكات
-create policy "Users can CRUD own tasks" on public.tasks for all using (auth.uid() = user_id);
+create policy "Users can CRUD own tasks" on public.tasks 
+  for all using (auth.uid() = user_id);
 
 -- سياسات التاسكات الفرعية
-create policy "Users can CRUD own sub_tasks" on public.sub_tasks for all using (auth.uid() = user_id);
+create policy "Users can CRUD own sub_tasks" on public.sub_tasks 
+  for all using (auth.uid() = user_id);
 
 -- سياسات النشاطات
-create policy "Users can CRUD own activities" on public.activities for all using (auth.uid() = user_id);
+create policy "Users can CRUD own activities" on public.activities 
+  for all using (auth.uid() = user_id);
 
 
 -- 9. إنشاء Indexes للأداء العالي 🚀
@@ -118,3 +146,34 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+
+-- 11. دالة RPC لإنشاء البروفايل يدويً في حالة الفشل التلقائي
+create or replace function public.ensure_profile_exists(
+  p_user_id uuid,
+  p_email text,
+  p_full_name text default ''
+)
+returns public.user_profiles as $$
+declare
+  v_profile public.user_profiles;
+begin
+  -- تحقق من وجود البروفايل
+  select * into v_profile from public.user_profiles where id = p_user_id;
+  
+  if v_profile is null then
+    -- إنشاء بروفايل جديد
+    insert into public.user_profiles (id, email, full_name, avatar_initials)
+    values (
+      p_user_id,
+      p_email,
+      p_full_name,
+      coalesce(substring(p_email from 1 for 2), 'US')
+    )
+    returning * into v_profile;
+  end if;
+  
+  return v_profile;
+end;
+$$ language plpgsql security definer;
+

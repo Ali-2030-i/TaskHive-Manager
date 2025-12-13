@@ -15,6 +15,7 @@ const navLinks = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [language, setLanguage] = useState<"ar" | "en">("ar");
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 
@@ -67,6 +68,17 @@ export function Navbar() {
 
         {/* Theme Toggle & Mobile Menu Button */}
         <div className="flex items-center gap-2">
+          {/* Language Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
+            className="transition-all duration-300 hover:bg-primary/10"
+            title={`Switch to ${language === "ar" ? "English" : "العربية"}`}
+          >
+            <span className="text-sm font-bold">{language === "ar" ? "EN" : "AR"}</span>
+          </Button>
+
           <Button
             variant="ghost"
             size="icon"

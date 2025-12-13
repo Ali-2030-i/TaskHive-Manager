@@ -1,355 +1,651 @@
-import { useState, useRef } from "react";
-import { Layout } from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
-import { 
-  Camera,
-  Mail, 
-  Clock, 
-  Trophy,
-  Edit2,
-  Save,
-  X,
-  CheckCircle2,
-  FolderKanban,
-  TrendingUp
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { useData } from "@/contexts/DataContext";
-import {
-  FadeIn,
-  ScrollReveal,
-  HoverScale,
-} from "@/components/MotionComponents";
+import { useNavigate } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { useTheme } from "@/contexts/ThemeContext";
+import "./Profile.css";
 
-const colorOptions = [
-  { name: "Amber", class: "bg-primary" },
-  { name: "Blue", class: "bg-secondary" },
-  { name: "Green", class: "bg-green-500" },
-  { name: "Purple", class: "bg-purple-500" },
-  { name: "Pink", class: "bg-pink-500" },
-  { name: "Cyan", class: "bg-cyan-500" },
-];
+interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  avatar_url: string;
+  role: string;
+  phone: string;
+  bio: string;
+  timezone: string;
+  status: "online" | "offline" | "away";
+  theme_preference: "light" | "dark" | "system";
+  language_preference: "ar" | "en";
+  notification_email: boolean;
+  notification_push: boolean;
+  notification_on_comment: boolean;
+  notification_on_task_complete: boolean;
+  updated_at: string;
+  created_at: string;
+}
 
-const achievements = [
-  { icon: CheckCircle2, label: "100 Tasks Completed", unlocked: true },
-  { icon: FolderKanban, label: "10 Projects Created", unlocked: true },
-  { icon: Clock, label: "40+ Focus Hours", unlocked: true },
-  { icon: Trophy, label: "Team Leader", unlocked: false },
-];
+export default function Profile() {
+  const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editPersonalMode, setEditPersonalMode] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-const Profile = () => {
-  const { profile, updateProfile, projects, tasks } = useData();
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: profile.name,
-    email: profile.email,
-    role: profile.role,
-    avatarColor: profile.avatarColor,
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track mouse movement for visual effects
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100,
+      });
+    };
 
-  const handleSaveProfile = () => {
-    updateProfile({
-      name: editForm.name,
-      email: editForm.email,
-      role: editForm.role,
-      avatarColor: editForm.avatarColor,
-    });
-    setIsEditOpen(false);
-  };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateProfile({ avatarImage: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+  // Fetch profile data
+  useEffect(() => {
+    fetchProfile();
+    
+    // Update connection status automatically
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      console.log("Current user:", user);
+      if (!user) {
+        console.error("No user found");
+        return;
+      }
+
+      // Try to fetch profile first
+      let { data, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      console.log("Profile select result:", { data, error });
+
+      // If profile doesn't exist, create a new one
+      if (error?.code === 'PGRST116' || !data) {
+        console.log("Profile not found, creating new one...");
+        
+        const newProfileData = {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || "",
+          avatar_initials: (user.email || "").substring(0, 2).toUpperCase(),
+        };
+
+        const { data: insertedData, error: insertError } = await supabase
+          .from("user_profiles")
+          .insert([newProfileData])
+          .select()
+          .single();
+
+        console.log("Insert result:", { insertedData, insertError });
+
+        if (insertError) {
+          console.error("Insert error:", insertError);
+          // Even if insertion fails, use default data
+          const defaultProfile: UserProfile = {
+            id: user.id,
+            email: user.email || "",
+            full_name: user.user_metadata?.full_name || "",
+            avatar_url: "",
+            role: "Member",
+            phone: "",
+            bio: "",
+            timezone: "UTC",
+            status: "offline",
+            theme_preference: "system",
+            language_preference: "ar",
+            notification_email: true,
+            notification_push: true,
+            notification_on_comment: true,
+            notification_on_task_complete: true,
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+          };
+          setProfile(defaultProfile);
+        } else {
+          setProfile(insertedData);
+        }
+      } else if (error) {
+        throw error;
+      } else {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveImage = () => {
-    updateProfile({ avatarImage: undefined });
+  const handleProfileUpdate = async (updates: Partial<UserProfile>) => {
+    try {
+      setSaving(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log("Updating profile with:", updates);
+
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      console.log("Update error:", error);
+
+      if (error) throw error;
+
+      // Update state
+      setProfile((prev) =>
+        prev ? { ...prev, ...updates } : null
+      );
+
+      // Refetch data to confirm it was saved
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchProfile();
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert(`Error updating profile: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const stats = [
-    { label: "Tasks Completed", value: tasks.filter(t => t.status === "done").length.toString() },
-    { label: "Projects", value: projects.length.toString() },
-    { label: "Focus Hours", value: `${profile.focusHours}h` },
-    { label: "Active Tasks", value: tasks.filter(t => t.status !== "done").length.toString() },
-  ];
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      setSaving(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Convert image to base64 as alternative solution
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          
+          // Save image directly to database
+          const { error: updateError } = await supabase
+            .from("user_profiles")
+            .update({
+              avatar_url: base64Data,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", user.id);
+
+          if (updateError) throw updateError;
+
+          // Update state
+          setProfile((prev) =>
+            prev ? { ...prev, avatar_url: base64Data } : null
+          );
+
+          alert("✅ Image uploaded successfully!");
+          setSaving(false);
+        } catch (error) {
+          console.error("Error saving avatar:", error);
+          alert(`❌ Error saving image: ${error instanceof Error ? error.message : String(error)}`);
+          setSaving(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert(`❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      alert("Password changed successfully");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Error changing password:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  const handleAddAccount = async () => {
+    const email = prompt("Enter new account email:");
+    if (!email) return;
+    
+    navigate("/"); // Redirect to login page
+  };
+
+  const handleSwitchAccount = async () => {
+    await handleLogout();
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="profile-loading">
+          <div className="spinner">🔄</div>
+          <p>Loading profile...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Layout>
+        <div className="profile-error" style={{
+          padding: '40px 20px',
+          textAlign: 'center',
+          maxWidth: '600px',
+          margin: '40px auto',
+          backgroundColor: '#f8d7da',
+          border: '1px solid #f5c6cb',
+          borderRadius: '8px',
+          color: '#721c24'
+        }}>
+          <h2 style={{marginTop: 0}}>⚠️ Database Error</h2>
+          <p>Table `user_profiles` does not exist in Supabase</p>
+          
+          <div style={{
+            backgroundColor: '#fff3cd',
+            padding: '15px',
+            borderRadius: '4px',
+            margin: '20px 0'
+          }}>
+            <strong>Solution:</strong>
+            <ol>
+              <li>Go to <a href="https://app.supabase.com" target="_blank" style={{color: 'blue'}}>Supabase Dashboard</a></li>
+              <li>Select your project (TaskHive)</li>
+              <li>Go to SQL Editor</li>
+              <li>Copy the contents of <code>supabase_schema.sql</code></li>
+              <li>Execute the commands</li>
+              <li>Come back here and refresh the page</li>
+            </ol>
+          </div>
+
+          <p style={{fontSize: '12px', opacity: 0.7}}>
+            More details in the file: <code>SETUP_INSTRUCTIONS.md</code>
+          </p>
+
+          <button onClick={fetchProfile} style={{
+            padding: '10px 20px',
+            marginTop: '10px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}>
+            🔄 Retry
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="pt-28 pb-16 min-h-screen">
-        <div className="container mx-auto px-6 max-w-4xl">
-          {/* Profile Card */}
-          <FadeIn direction="down" duration={0.6}>
-            <motion.div className="glass-card p-8 mb-8" whileHover={{ borderColor: "rgba(var(--primary), 0.3)" }}>
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Avatar */}
-                <HoverScale scale={1.05}>
-                  <motion.div
-                    className="relative group"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    {profile.avatarImage ? (
-                      <img 
-                        src={profile.avatarImage} 
-                        alt={profile.name}
-                        className="w-24 h-24 rounded-full object-cover glow-amber"
-                      />
-                    ) : (
-                      <div className={cn(
-                        "w-24 h-24 rounded-full flex items-center justify-center text-3xl font-display font-bold",
-                        profile.avatarColor,
-                        "text-primary-foreground glow-amber"
-                      )}>
-                        {profile.avatarInitials}
-                      </div>
-                    )}
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      <Camera className="w-6 h-6 text-white" />
-                    </button>
-                    <input 
-                      ref={fileInputRef}
-                      type="file" 
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    {profile.avatarImage && (
-                      <button
-                        onClick={handleRemoveImage}
-                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </motion.div>
-                </HoverScale>
-
-              {/* Info */}
-              <motion.div className="flex-1 text-center md:text-left">
-                <h1 className="font-display text-3xl font-bold text-foreground mb-1">
-                  {profile.name}
-                </h1>
-                <p className="text-muted-foreground mb-2">
-                  {profile.role}
-                </p>
-                <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  {profile.email}
-                </div>
-              </motion.div>
-
-              {/* Edit Button */}
-              <HoverScale scale={1.08}>
-                <Button variant="outline" onClick={() => {
-                  setEditForm({
-                    name: profile.name,
-                    email: profile.email,
-                    role: profile.role,
-                    avatarColor: profile.avatarColor,
-                  });
-                  setIsEditOpen(true);
-                }}>
-                  <Edit2 className="w-4 h-4" />
-                  Edit Profile
-                </Button>
-              </HoverScale>
-            </div>
-            </motion.div>
-          </FadeIn>
-
-          {/* Stats */}
-          <motion.div 
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            viewport={{ once: true }}
+      <div className="profile-container">
+        {/* Main content - single vertical page */}
+        <div className="profile-content">
+          {/* ===== Identity Section ===== */}
+          <motion.div
+            className="profile-section identity-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
           >
-            {stats.map((stat, idx) => (
-              <motion.div
-                key={stat.label}
-                className="glass-card p-4 text-center group"
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.05 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -4 }}
-              >
-                <div className="font-display text-2xl font-bold text-foreground mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {stat.label}
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Achievements */}
-          <ScrollReveal delay={0.2}>
-            <motion.div 
-              className="glass-card p-6 mb-8"
-              whileHover={{ borderColor: "rgba(var(--primary), 0.3)" }}
-            >
-              <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" />
-              Achievements
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {achievements.map((achievement, idx) => (
-                <motion.div
-                  key={`achievement-${idx}`}
-                  className={cn(
-                    "p-4 rounded-xl text-center transition-all cursor-pointer group",
-                    achievement.unlocked 
-                      ? "bg-primary/10 border border-primary/30" 
-                      : "bg-muted/50 border border-border opacity-50"
+            <h2 className="section-title">🪪 Identity</h2>
+            
+            <div className="identity-card">
+              {/* Profile Picture */}
+              <div className="avatar-section">
+                <div className="avatar-wrapper">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.full_name}
+                      className="avatar-image"
+                    />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      {profile?.full_name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase() || "U"}
+                    </div>
                   )}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.05 }}
-                  viewport={{ once: true }}
-                  whileHover={achievement.unlocked ? { scale: 1.05, y: -4 } : {}}
-                >
-                  <motion.div
-                    animate={achievement.unlocked ? { y: [0, -4, 0] } : {}}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <achievement.icon 
-                      className={cn(
-                        "w-8 h-8 mx-auto mb-2",
-                        achievement.unlocked ? "text-primary" : "text-muted-foreground"
-                      )} 
-                    />
-                  </motion.div>
-                  <p className="text-sm font-medium text-foreground">
-                    {achievement.label}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-            </motion.div>
-          </ScrollReveal>
-
-          {/* Focus Hours Chart */}
-          <div 
-            className="glass-card p-6 animate-slide-up"
-            style={{ animationDelay: "0.3s", animationFillMode: "both" }}
-          >
-            <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              Focus Hours This Week
-            </h2>
-            <div className="h-48 flex items-end gap-2">
-              {[6, 8, 5, 9, 7, 4, 3].map((hours, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{hours}h</span>
-                  <div 
-                    className="w-full bg-gradient-to-t from-primary to-primary/50 rounded-t-lg transition-all duration-500 hover:from-primary/80"
-                    style={{ height: `${(hours / 10) * 100}%` }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]}
-                  </span>
+                  {isOnline && (
+                    <div className="status-indicator online" />
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Edit Profile Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">
-              Edit Profile
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Full Name
-              </label>
-              <Input
-                placeholder="Enter your name..."
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                className="bg-muted border-border"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Email
-              </label>
-              <Input
-                type="email"
-                placeholder="Enter your email..."
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="bg-muted border-border"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Role
-              </label>
-              <Input
-                placeholder="Enter your role..."
-                value={editForm.role}
-                onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                className="bg-muted border-border"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Avatar Color (if no image)
-              </label>
-              <div className="flex gap-2">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color.name}
-                    onClick={() => setEditForm({ ...editForm, avatarColor: color.class })}
-                    className={cn(
-                      "w-8 h-8 rounded-full transition-all",
-                      color.class,
-                      editForm.avatarColor === color.class && "ring-2 ring-foreground ring-offset-2 ring-offset-card"
-                    )}
-                    title={color.name}
-                  />
-                ))}
+                {editMode && (
+                  <label className="upload-button">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleAvatarUpload(e.target.files[0]);
+                        }
+                      }}
+                      style={{ display: "none" }}
+                    />
+                    📸 Upload Photo
+                  </label>
+                )}
+              </div>
+
+              {/* Identity Data */}
+              <div className="identity-info">
+                <div className="info-item">
+                  <label>Full Name</label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={profile?.full_name || ""}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile!,
+                          full_name: e.target.value,
+                        })
+                      }
+                    />
+                  ) : (
+                    <p>{profile?.full_name || "Not set"}</p>
+                  )}
+                </div>
+
+                <div className="info-item">
+                  <label>Job Title</label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={profile?.role || ""}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile!,
+                          role: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Senior Developer"
+                    />
+                  ) : (
+                    <p>{profile?.role || "Not set"}</p>
+                  )}
+                </div>
+
+                <div className="info-item">
+                  <label>Email Address</label>
+                  <p className="read-only">{profile?.email}</p>
+                </div>
+              </div>
+
+              {/* Identity Control Buttons */}
+              <div className="action-buttons">
+                {editMode ? (
+                  <>
+                    <motion.button
+                      className="save-button"
+                      onClick={() => {
+                        handleProfileUpdate({
+                          full_name: profile?.full_name || "",
+                          role: profile?.role || "",
+                        });
+                        setEditMode(false);
+                      }}
+                      whileHover={{ scale: 1.05 }}
+                      disabled={saving}
+                    >
+                      💾 Save
+                    </motion.button>
+                    <motion.button
+                      className="cancel-button"
+                      onClick={() => setEditMode(false)}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      ❌ Cancel
+                    </motion.button>
+                  </>
+                ) : (
+                  <motion.button
+                    className="secondary-button"
+                    onClick={() => setEditMode(true)}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    ✏️ Edit Identity
+                  </motion.button>
+                )}
               </div>
             </div>
-            <Button 
-              variant="hero" 
-              className="w-full"
-              onClick={handleSaveProfile}
-            >
-              <Save className="w-4 h-4" />
-              Save Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </motion.div>
+
+          {/* ===== Personal Information Section ===== */}
+          <motion.div
+            className="profile-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <div className="section-header">
+              <h2 className="section-title">📝 Personal Information</h2>
+              {!editPersonalMode && (
+                <motion.button
+                  className="section-edit-btn"
+                  onClick={() => setEditPersonalMode(true)}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  ✏️ Edit
+                </motion.button>
+              )}
+            </div>
+
+            <div className="form-section">
+              <div className="form-group">
+                <label>Phone Number</label>
+                {editPersonalMode ? (
+                  <input
+                    type="tel"
+                    value={profile?.phone || ""}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile!,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="+1 (123) 456-7890"
+                  />
+                ) : (
+                  <p>{profile?.phone || "Not set"}</p>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Bio</label>
+                {editPersonalMode ? (
+                  <textarea
+                    value={profile?.bio || ""}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile!,
+                        bio: e.target.value,
+                      })
+                    }
+                    placeholder="Tell us about yourself..."
+                    maxLength={150}
+                  />
+                ) : (
+                  <p>{profile?.bio || "Not set"}</p>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Time Zone</label>
+                {editPersonalMode ? (
+                  <select
+                    value={profile?.timezone || ""}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile!,
+                        timezone: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="UTC">UTC</option>
+                    <option value="Africa/Cairo">Africa/Cairo (EET)</option>
+                    <option value="Europe/London">Europe/London (GMT)</option>
+                    <option value="Europe/Paris">Europe/Paris (CET)</option>
+                    <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                  </select>
+                ) : (
+                  <p>{profile?.timezone || "UTC"}</p>
+                )}
+              </div>
+
+              {editPersonalMode && (
+                <div className="action-buttons">
+                  <motion.button
+                    className="save-button"
+                    onClick={() => {
+                      handleProfileUpdate({
+                        phone: profile?.phone || "",
+                        bio: profile?.bio || "",
+                        timezone: profile?.timezone || "",
+                      });
+                      setEditPersonalMode(false);
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    disabled={saving}
+                  >
+                    💾 Save
+                  </motion.button>
+                  <motion.button
+                    className="cancel-button"
+                    onClick={() => setEditPersonalMode(false)}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    ❌ Cancel
+                  </motion.button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* ===== Security Section ===== */}
+          <motion.div
+            className="profile-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h2 className="section-title">🔐 Security</h2>
+
+            <div className="security-section">
+              {/* Change Password */}
+              <div className="security-item">
+                <h3>🔑 Change Password</h3>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter a new password"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                  />
+                </div>
+                <motion.button
+                  className="save-button"
+                  onClick={handleChangePassword}
+                  whileHover={{ scale: 1.05 }}
+                  disabled={saving || !newPassword}
+                >
+                  💾 Update Password
+                </motion.button>
+              </div>
+
+              {/* Logout */}
+              <div className="security-item logout-section">
+                <h3>🚪 Logout</h3>
+                <p>Sign out of your account</p>
+                <motion.button
+                  className="danger-button"
+                  onClick={handleLogout}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  🚪 Logout
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
     </Layout>
   );
-};
-
-export default Profile;
+}
